@@ -68,12 +68,10 @@ def test_inference(text2breaks, breaks2ssml):
     print(f"   Input: {test_text}")
     
     try:
-        # Test text2breaks
         print("   Testing text2breaks...")
         text_with_breaks = text2breaks.predict(test_text, temperature=0.5)
         print(f"   Step 1 result: {text_with_breaks}")
         
-        # Test breaks2ssml
         print("   Testing breaks2ssml...")
         ssml_result = breaks2ssml.predict(text_with_breaks, temperature=0.3)
         print(f"   Step 2 result: {ssml_result}")
@@ -112,23 +110,18 @@ def main():
     print("🧪 French SSML Models - Test Suite")
     print("=" * 60)
     
-    # Test imports
     if not test_imports():
         print("\n❌ Import test failed. Please install required packages.")
         return False
-    
-    # Test model loading
     text2breaks, breaks2ssml = test_model_loading()
     if text2breaks is None or breaks2ssml is None:
         print("\n❌ Model loading failed. Please check your internet connection and HuggingFace access.")
         return False
     
-    # Test inference
     if not test_inference(text2breaks, breaks2ssml):
         print("\n❌ Inference test failed.")
         return False
     
-    # Test cascade
     if not test_cascade():
         print("\n❌ Cascade test failed.")
         return False

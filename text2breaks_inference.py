@@ -1,39 +1,37 @@
 #!/usr/bin/env python3
 """
-Clean inference script for hi-paris/ssml-text2breaks-fr-lora
-Predicts symbolic pause markers (e.g., #250, #500) in French text.
+Inference script for hi-paris/ssml-text2breaks-fr-lora
+Converts French text to text with symbolic pause markers.
 
-Usage:
-    python text2breaks_inference.py "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour."
+Example:
+    Input:  "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour."
+    Output: "Bonjour je m'appelle Bertrand Perier.<break/>Je suis avocat à la cour.<break/>"
 """
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
-import sys
 import argparse
 import logging
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
+
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import PeftModel
+import argparse
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 class Text2BreaksInference:
     """Inference class for text-to-breaks model"""
     
     def __init__(self, model_name="hi-paris/ssml-text2breaks-fr-lora", device="auto"):
-        """
-        Initialize the model and tokenizer
-        
-        Args:
-            model_name: HuggingFace model name
-            device: Device to load model on ("auto", "cuda", "cpu")
-        """
-        self.model_name = model_name
-        self.device = device
-        
-        logger.info(f"Loading base model and tokenizer...")
-        # Load base model and tokenizer
+        """Initialize the model and tokenizer"""
+        logger.info("Loading base model and tokenizer...")
         self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
         self.base_model = AutoModelForCausalLM.from_pretrained(
             "Qwen/Qwen2.5-7B",
@@ -42,77 +40,33 @@ class Text2BreaksInference:
         )
         
         logger.info(f"Loading LoRA adapter from {model_name}...")
-        # Load LoRA adapter
         self.model = PeftModel.from_pretrained(self.base_model, model_name)
         self.model.eval()
         
-        # Add pad token if needed
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
             
         logger.info("Model loaded successfully!")
     
     def predict(self, text, max_new_tokens=256, temperature=0.7, do_sample=True):
-        """
-        Predict symbolic pause markers for the given text
-        
-        Args:
-            text: Input French text
-            max_new_tokens: Maximum number of tokens to generate
-            temperature: Sampling temperature (0.0 = greedy, higher = more random)
-            do_sample: Whether to use sampling or greedy decoding
-            
-        Returns:
-            Text with symbolic pause markers (e.g., "Bonjour#250 comment vas-tu ?")
-        """
-        # Format input according to training format
+        """Convert French text to text with symbolic breaks"""
         instruction = "Convert text to SSML with pauses:"
         formatted_input = f"### Task:\n{instruction}\n\n### Text:\n{text}\n\n### SSML:\n"
         
-        # Tokenize input
         inputs = self.tokenizer(formatted_input, return_tensors="pt").to(self.model.device)
         
-        # Generate prediction
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 temperature=temperature,
                 do_sample=do_sample,
-                pad_token_id=self.tokenizer.eos_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-                repetition_penalty=1.1
+                pad_token_id=self.tokenizer.eos_token_id
             )
         
-        # Decode and extract the generated part
-        full_response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        
-        # Extract only the generated SSML part
-        if "### SSML:\n" in full_response:
-            ssml_output = full_response.split("### SSML:\n")[-1].strip()
-        else:
-            ssml_output = full_response.replace(formatted_input, "").strip()
-            
-        return ssml_output
-    
-    def predict_batch(self, texts, **kwargs):
-        """
-        Predict symbolic pause markers for multiple texts
-        
-        Args:
-            texts: List of input French texts
-            **kwargs: Additional arguments for predict()
-            
-        Returns:
-            List of texts with symbolic pause markers
-        """
-        results = []
-        for text in texts:
-            result = self.predict(text, **kwargs)
-            results.append(result)
-        return results
-
-
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        result = response.split("### SSML:\n")[-1].strip()
+        return result
 def main():
     parser = argparse.ArgumentParser(description="French Text to Symbolic Breaks Inference")
     parser.add_argument("text", nargs="?", help="Input French text")
@@ -125,7 +79,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Initialize model
     inferencer = Text2BreaksInference(model_name=args.model, device=args.device)
     
     if args.interactive:
@@ -135,22 +88,18 @@ def main():
                 text = input("\n> ").strip()
                 if not text:
                     break
-                result = inferencer.predict(text, 
-                                          max_new_tokens=args.max_tokens,
+                result = inferencer.predict(text, max_new_tokens=args.max_tokens, 
                                           temperature=args.temperature)
                 print(f"Output: {result}")
             except KeyboardInterrupt:
                 break
     else:
         if not args.text:
-            # Example if no text provided
-            example_text = "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour."
-            print(f"No input text provided. Using example: '{example_text}'")
-            args.text = example_text
+            parser.print_help()
+            return
         
         print(f"Input:  {args.text}")
-        result = inferencer.predict(args.text, 
-                                  max_new_tokens=args.max_tokens,
+        result = inferencer.predict(args.text, max_new_tokens=args.max_tokens, 
                                   temperature=args.temperature)
         print(f"Output: {result}")
 

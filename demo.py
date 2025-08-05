@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Comprehensive demo script for the French SSML cascade models
+Demo script for the French SSML cascade models
 
 This script demonstrates:
-1. Text-to-Breaks prediction (hi-paris/ssml-text2breaks-fr-lora)
-2. Breaks-to-SSML conversion (hi-paris/ssml-breaks2ssml-fr-lora)
+1. Text-to-Breaks prediction
+2. Breaks-to-SSML conversion
 3. Full cascade from plain text to SSML
 
 Usage:
@@ -20,14 +20,12 @@ import argparse
 import time
 import logging
 
-# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def demo_examples():
     """Run demo with predefined examples"""
     
-    # Example texts
     examples = [
         "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour.",
         "Comment allez-vous aujourd'hui ? J'espère que tout va bien pour vous.",
@@ -37,38 +35,32 @@ def demo_examples():
     ]
     
     print("=" * 80)
-    print("🗣️  French SSML Cascade Models Demo")
+    print("French SSML Cascade Models Demo")
     print("=" * 80)
     print()
     
-    # Initialize models
-    print("🔧 Initializing models...")
+    print("Initializing models...")
     start_time = time.time()
     
     try:
-        # Initialize individual models
         text2breaks = Text2BreaksInference()
         breaks2ssml = Breaks2SSMLInference()
-        
-        # Initialize cascade
         cascade = CascadedInference()
         
         init_time = time.time() - start_time
-        print(f"✅ Models loaded successfully in {init_time:.1f} seconds\n")
+        print(f"Models loaded successfully in {init_time:.1f} seconds\n")
         
     except Exception as e:
-        print(f"❌ Error loading models: {e}")
+        print(f"Error loading models: {e}")
         return
     
-    # Run examples
     for i, text in enumerate(examples, 1):
-        print(f"📝 Example {i}/{len(examples)}")
+        print(f"Example {i}/{len(examples)}")
         print(f"Input: {text}")
         print()
         
         try:
-            # Step 1: Text to breaks
-            print("🔹 Step 1: Adding symbolic breaks...")
+            print("Step 1: Adding symbolic breaks...")
             start_time = time.time()
             text_with_breaks = text2breaks.predict(text, temperature=0.7)
             step1_time = time.time() - start_time
@@ -76,8 +68,7 @@ def demo_examples():
             print(f"   Time: {step1_time:.2f}s")
             print()
             
-            # Step 2: Breaks to SSML
-            print("🔹 Step 2: Converting to SSML...")
+            print("Step 2: Converting to SSML...")
             start_time = time.time()
             ssml_output = breaks2ssml.predict(text_with_breaks, temperature=0.3)
             step2_time = time.time() - start_time
@@ -86,10 +77,10 @@ def demo_examples():
             print()
             
             total_time = step1_time + step2_time
-            print(f"⏱️  Total processing time: {total_time:.2f}s")
+            print(f"⏱Total processing time: {total_time:.2f}s")
             
         except Exception as e:
-            print(f"❌ Error processing example {i}: {e}")
+            print(f"Error processing example {i}: {e}")
         
         print("-" * 80)
         print()
@@ -99,7 +90,7 @@ def interactive_mode():
     """Run in interactive mode"""
     
     print("=" * 80)
-    print("🗣️  Interactive French SSML Cascade")
+    print("Interactive French SSML Cascade")
     print("=" * 80)
     print()
     print("Choose mode:")
@@ -113,7 +104,7 @@ def interactive_mode():
     except KeyboardInterrupt:
         return
     
-    print("\n🔧 Initializing models...")
+    print("\nInitializing models...")
     
     try:
         if mode == "1":
@@ -129,7 +120,7 @@ def interactive_mode():
             print("Invalid mode selected.")
             return
             
-        print("✅ Models loaded successfully!")
+        print("Models loaded successfully!")
         print(f"\n{input_prompt} (empty line to exit):")
         
         while True:
@@ -151,7 +142,7 @@ def interactive_mode():
                 print(f"Error: {e}")
                 
     except Exception as e:
-        print(f"❌ Error initializing models: {e}")
+        print(f"Error initializing models: {e}")
 
 
 def process_single_text(text, mode="cascade"):
@@ -169,7 +160,7 @@ def process_single_text(text, mode="cascade"):
         else:
             raise ValueError(f"Unknown mode: {mode}")
             
-        print("✅ Models loaded successfully!")
+        print("Models loaded successfully!")
         print()
         
         print(f"Input:  {text}")
@@ -182,7 +173,7 @@ def process_single_text(text, mode="cascade"):
         print(f"Time: {process_time:.2f}s")
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
 
 
 def main():
@@ -202,7 +193,6 @@ def main():
     elif args.examples:
         demo_examples()
     else:
-        # Default: run examples
         demo_examples()
 
 

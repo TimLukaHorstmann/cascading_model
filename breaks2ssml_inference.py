@@ -1,49 +1,37 @@
 #!/usr/bin/env python3
 """
-Clean inference script for hi-paris/ssml-breaks2ssml-fr-lora
-Converts text with symbolic pause markers to proper SSML with <break time="..."/> tags.
+Inference script for hi-paris/ssml-breaks2ssml-fr-lora
+Converts text with symbolic pause markers to proper SSML.
 
-Usage:
-    python breaks2ssml_inference.py "Bonjour#250 comment vas-tu ?"
+Example:
+    Input:  "Bonjour comment allez-vous ?<break/>"
+    Output: "<prosody pitch='+0.64%' rate='-1.92%' volume='-10.00%'>Bonjour comment allez-vous ?</prosody><break time='500ms'/>"
 """
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
-import sys
 import argparse
 import logging
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# Import for cascaded inference
 try:
     from text2breaks_inference import Text2BreaksInference
-    from empty_ssml_creation import create_empty_ssml_from_simple_breaks, create_empty_ssml_multiline
+    from empty_ssml_creation import create_empty_ssml_from_simple_breaks
 except ImportError:
-    # Handle case where dependencies might not be available
     Text2BreaksInference = None
     create_empty_ssml_from_simple_breaks = None
-    create_empty_ssml_multiline = None
 
 class Breaks2SSMLInference:
     """Inference class for breaks-to-SSML model"""
     
     def __init__(self, model_name="hi-paris/ssml-breaks2ssml-fr-lora", device="auto"):
-        """
-        Initialize the model and tokenizer
-        
-        Args:
-            model_name: HuggingFace model name
-            device: Device to load model on ("auto", "cuda", "cpu")
-        """
         self.model_name = model_name
         self.device = device
         
         logger.info(f"Loading base model and tokenizer...")
-        # Load base model and tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
         self.base_model = AutoModelForCausalLM.from_pretrained(
             "Qwen/Qwen2.5-7B",
@@ -52,48 +40,28 @@ class Breaks2SSMLInference:
         )
         
         logger.info(f"Loading LoRA adapter from {model_name}...")
-        # Load LoRA adapter
         self.model = PeftModel.from_pretrained(self.base_model, model_name)
         self.model.eval()
         
-        # Add pad token if needed
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
             
         logger.info("Model loaded successfully!")
     
     def predict(self, text_with_breaks, max_new_tokens=128, temperature=0.1, do_sample=False):
-        """
-        Convert text with simple <break/> tags to proper SSML
-        
-        Args:
-            text_with_breaks: Input text with simple break tags (e.g., "Bonjour<break/>comment vas-tu ?")
-            max_new_tokens: Maximum number of tokens to generate
-            temperature: Sampling temperature (0.0 = greedy, lower for more deterministic)
-            do_sample: Whether to use sampling or greedy decoding
-            
-        Returns:
-            Text with SSML break tags (e.g., "Bonjour<break time=\"250ms\"/>comment vas-tu ?")
-        """
-        # CRUCIAL: Apply Empty SSML Creation step first
-        # Convert simple breaks to empty SSML template as per the cascade diagram
+        """Convert text with simple <break/> tags to proper SSML"""
         if create_empty_ssml_from_simple_breaks is not None:
             empty_ssml_template = create_empty_ssml_from_simple_breaks(text_with_breaks)
             logger.info(f"Empty SSML template: {empty_ssml_template}")
             
-            # Use the EXACT training format from breaks_2_ssml_jonah.py:
-            # "### Instruction:\nConvert text Z to text Y.\n\n### Input Z:\n{input_str}\n\n### Output Y:\n"
             formatted_input = f"### Instruction:\nConvert text Z to text Y.\n\n### Input Z:\n{empty_ssml_template}\n\n### Output Y:\n"
             logger.info(f"Formatted input: {formatted_input}")
         else:
-            # Fallback to direct input if empty_ssml_creation is not available
             logger.warning("Empty SSML creation not available, using direct input")
             formatted_input = text_with_breaks
         
-        # Tokenize input
         inputs = self.tokenizer(formatted_input, return_tensors="pt").to(self.model.device)
         
-        # Generate prediction with more conservative settings
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
@@ -102,44 +70,28 @@ class Breaks2SSMLInference:
                 do_sample=do_sample,
                 pad_token_id=self.tokenizer.eos_token_id,
                 repetition_penalty=1.1,
-                num_beams=1,  # Greedy decoding
-                early_stopping=False  # Disable early stopping to see full output
+                num_beams=1,
+                early_stopping=False
             )
         
-        # Decode and extract the generated part
         full_response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         
-        # Extract only the generated part (remove the input)
         if len(full_response) > len(formatted_input):
             ssml_output = full_response[len(formatted_input):].strip()
         else:
             ssml_output = full_response.strip()
         
-        # If we used instruction formatting, try to extract the SSML part
         if "### Output Y:\n" in formatted_input:
-            # Try to extract the part after ### Output Y:
             if "### Output Y:\n" in full_response:
                 ssml_output = full_response.split("### Output Y:\n")[-1].strip()
         elif "### SSML:\n" in formatted_input:
-            # Legacy fallback for old format
             if "### SSML:\n" in full_response:
                 ssml_output = full_response.split("### SSML:\n")[-1].strip()
         
-        # Clean up the output - DON'T truncate to first line anymore
-        # The model generates multiline SSML and we need all of it
         return ssml_output
     
     def predict_batch(self, texts_with_breaks, **kwargs):
-        """
-        Convert multiple texts with symbolic breaks to proper SSML
-        
-        Args:
-            texts_with_breaks: List of input texts with symbolic breaks
-            **kwargs: Additional arguments for predict()
-            
-        Returns:
-            List of texts with SSML break tags
-        """
+        """Convert multiple texts with symbolic breaks to proper SSML"""
         results = []
         for text in texts_with_breaks:
             result = self.predict(text, **kwargs)
@@ -154,53 +106,30 @@ class CascadedInference:
                  text2breaks_model="hi-paris/ssml-text2breaks-fr-lora",
                  breaks2ssml_model="hi-paris/ssml-breaks2ssml-fr-lora",
                  device="auto"):
-        """
-        Initialize both models for cascaded inference
-        
-        Args:
-            text2breaks_model: Text-to-breaks model name
-            breaks2ssml_model: Breaks-to-SSML model name
-            device: Device to use
-        """
         logger.info("Initializing cascaded inference...")
         
-        # Check if Text2BreaksInference is available
         if Text2BreaksInference is None:
             raise ImportError("Text2BreaksInference not available. Please ensure text2breaks_inference.py is accessible.")
         
-        # Initialize both models
         self.text2breaks = Text2BreaksInference(text2breaks_model, device)
         self.breaks2ssml = Breaks2SSMLInference(breaks2ssml_model, device)
         
         logger.info("Cascaded inference ready!")
     
     def predict(self, text, **kwargs):
-        """
-        Convert plain text to SSML through the cascade
-        
-        Args:
-            text: Plain French text
-            **kwargs: Additional arguments for generation
-            
-        Returns:
-            SSML with break tags
-        """
-        # Step 1: Add symbolic breaks
+        """Convert plain text to SSML through the cascade"""
         text_with_breaks = self.text2breaks.predict(text, **kwargs)
         logger.info(f"Step 1 - Text with breaks: {text_with_breaks}")
         
-        # Step 2: Convert to SSML
         ssml_output = self.breaks2ssml.predict(text_with_breaks, **kwargs)
         logger.info(f"Step 2 - SSML output: {ssml_output}")
-        
         return ssml_output
 
 
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Breaks to SSML Inference")
-    parser.add_argument("text", nargs="?", help="Input text with symbolic breaks (e.g., 'Hello#250 world')")
-    parser.add_argument("--model", default="hi-paris/ssml-breaks2ssml-fr-lora", 
-                       help="HuggingFace model name")
+    parser.add_argument("text", nargs="?", help="Input text with symbolic breaks")
+    parser.add_argument("--model", default="hi-paris/ssml-breaks2ssml-fr-lora", help="HuggingFace model name")
     parser.add_argument("--device", default="auto", help="Device to use (auto, cuda, cpu)")
     parser.add_argument("--temperature", type=float, default=0.3, help="Sampling temperature")
     parser.add_argument("--max-tokens", type=int, default=128, help="Maximum new tokens")
@@ -210,12 +139,10 @@ def main():
     args = parser.parse_args()
     
     if args.cascade:
-        # Use full cascade
         inferencer = CascadedInference(device=args.device)
         input_prompt = "Enter plain French text"
         example_text = "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour."
     else:
-        # Use only breaks2ssml model
         inferencer = Breaks2SSMLInference(model_name=args.model, device=args.device)
         input_prompt = "Enter text with symbolic breaks (e.g., 'Hello#250 world')"
         example_text = "Bonjour#250 comment vas-tu ?"
@@ -235,7 +162,6 @@ def main():
                 break
     else:
         if not args.text:
-            # Example if no text provided
             print(f"No input text provided. Using example: '{example_text}'")
             args.text = example_text
         
