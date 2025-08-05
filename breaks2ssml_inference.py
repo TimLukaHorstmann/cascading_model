@@ -80,7 +80,11 @@ class Breaks2SSMLInference:
         if create_empty_ssml_from_simple_breaks is not None:
             empty_ssml_template = create_empty_ssml_from_simple_breaks(text_with_breaks)
             logger.info(f"Empty SSML template: {empty_ssml_template}")
-            formatted_input = empty_ssml_template
+            
+            # Use the EXACT training format from breaks_2_ssml_jonah.py:
+            # "### Instruction:\nConvert text Z to text Y.\n\n### Input Z:\n{input_str}\n\n### Output Y:\n"
+            formatted_input = f"### Instruction:\nConvert text Z to text Y.\n\n### Input Z:\n{empty_ssml_template}\n\n### Output Y:\n"
+            logger.info(f"Formatted input: {formatted_input}")
         else:
             # Fallback to direct input if empty_ssml_creation is not available
             logger.warning("Empty SSML creation not available, using direct input")
@@ -97,10 +101,9 @@ class Breaks2SSMLInference:
                 temperature=temperature,
                 do_sample=do_sample,
                 pad_token_id=self.tokenizer.eos_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
                 repetition_penalty=1.1,
                 num_beams=1,  # Greedy decoding
-                early_stopping=True
+                early_stopping=False  # Disable early stopping to see full output
             )
         
         # Decode and extract the generated part
@@ -112,12 +115,18 @@ class Breaks2SSMLInference:
         else:
             ssml_output = full_response.strip()
         
-        # Clean up the output - try to extract just the first line if there's excessive generation
-        lines = ssml_output.split('\n')
-        if len(lines) > 1 and lines[0].strip():
-            # Take the first non-empty line that looks like our expected output
-            ssml_output = lines[0].strip()
-            
+        # If we used instruction formatting, try to extract the SSML part
+        if "### Output Y:\n" in formatted_input:
+            # Try to extract the part after ### Output Y:
+            if "### Output Y:\n" in full_response:
+                ssml_output = full_response.split("### Output Y:\n")[-1].strip()
+        elif "### SSML:\n" in formatted_input:
+            # Legacy fallback for old format
+            if "### SSML:\n" in full_response:
+                ssml_output = full_response.split("### SSML:\n")[-1].strip()
+        
+        # Clean up the output - DON'T truncate to first line anymore
+        # The model generates multiline SSML and we need all of it
         return ssml_output
     
     def predict_batch(self, texts_with_breaks, **kwargs):

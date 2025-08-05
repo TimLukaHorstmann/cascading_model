@@ -18,48 +18,88 @@ def create_empty_ssml_from_simple_breaks(text_with_breaks: str) -> str:
     Convert text with simple <break/> tags to empty SSML template.
     
     This is the programmatic "Empty SSML Creation" step from the cascade diagram.
+    This function follows EXACTLY the format_z_ssml_template_from_parsed_sequence format
+    from data_formatting_QwenB.py to match the training data format.
     
     Args:
         text_with_breaks: Text with simple break tags (e.g., "Bonjour comment allez-vous ?<break/>")
         
     Returns:
-        Empty SSML template (e.g., "<prosody pitch=\"_%\" rate=\"_%\" volume=\"_%\">Bonjour comment allez-vous ?</prosody><break time=\"_ms\"/>")
+        Empty SSML template with EXACT training data formatting
     
     Example:
         Input:  "Bonjour comment allez-vous ?<break/>"
-        Output: "<prosody pitch=\"_%\" rate=\"_%\" volume=\"_%\">Bonjour comment allez-vous ?</prosody><break time=\"_ms\"/>"
+        Output: " <prosody pitch=\"_%\" rate=\"_%\" volume=\"_%\">\n    Bonjour comment allez-vous ?\n  </prosody>\n  <break time=\"_ms\"/>"
     """
     if not text_with_breaks or not text_with_breaks.strip():
         return ""
     
-    # Parse text with simple <break/> tags into segments
-    segments = parse_simple_breaks(text_with_breaks)
+    # Parse text with simple <break/> tags into segments (simulate parsed_sequence format)
+    segments = parse_simple_breaks_to_parsed_sequence_format(text_with_breaks)
     
-    # Convert segments to empty SSML template
-    ssml_parts = []
+    # Apply the EXACT logic from format_z_ssml_template_from_parsed_sequence
+    ssml_elements = []
+    idx = 0
     
-    for segment in segments:
-        if segment['type'] == 'text':
-            text = segment['text'].strip()
+    while idx < len(segments):
+        segment = segments[idx]
+        stype = segment.get("type", "")
+        text = segment.get("text", "")  # Text content
+        
+        if stype == "text":
+            # For 'z', always include the prosody tag with placeholder attributes
+            # EXACT format from training data: multiline with proper indentation
+            ssml_elements.append(f'  <prosody pitch="_%\" rate="_%\" volume="_%\">\n    {text}\n  </prosody>')
+            idx += 1
+        elif stype == "break":
+            current_breaks_tags = []
+            temp_idx = idx
+            while temp_idx < len(segments) and segments[temp_idx].get("type") == "break":
+                # For 'z', always use the placeholder for time
+                current_breaks_tags.append('<break time="_ms"/>')
+                temp_idx += 1
+            
+            if current_breaks_tags:
+                ssml_elements.append("  " + "".join(current_breaks_tags))
+            idx = temp_idx
+        else:
+            # Fallback for any other content
             if text:
-                # Wrap text in empty prosody tags with placeholder attributes
-                ssml_parts.append(f'<prosody pitch="_%\" rate="_%\" volume="_%\">{text}</prosody>')
-        elif segment['type'] == 'break':
-            # Convert simple break to empty break tag with placeholder time
-            ssml_parts.append('<break time="_ms"/>')
+                ssml_elements.append(f"  {text}")
+            idx += 1
     
-    return ''.join(ssml_parts)
+    # Same joining logic as the original function
+    final_z_output_parts = []
+    num_elements = len(ssml_elements)
+    
+    for i, current_element_str in enumerate(ssml_elements):
+        final_z_output_parts.append(current_element_str)
+        is_break_element = "  <break" in current_element_str
+        is_prosody_element = lambda s: s.startswith("  <prosody")
+        
+        if is_break_element:
+            if (i + 1) < num_elements and is_prosody_element(ssml_elements[i+1]):
+                final_z_output_parts.append("")  # Add empty string for extra newline
+    
+    if not final_z_output_parts: 
+        return ""
+    
+    # EXACT format: starts with space and joins with newlines
+    return " " + "\n".join(final_z_output_parts)
 
 
-def parse_simple_breaks(text_with_breaks: str) -> List[Dict[str, str]]:
+def parse_simple_breaks_to_parsed_sequence_format(text_with_breaks: str) -> List[Dict[str, str]]:
     """
-    Parse text with simple <break/> tags into structured segments.
+    Parse text with simple <break/> tags into the parsed_sequence format used in training.
+    
+    This simulates the parsed_sequence structure from the training data to ensure
+    we generate the exact same format as format_z_ssml_template_from_parsed_sequence.
     
     Args:
         text_with_breaks: Text with simple break tags (e.g., "Hello world<break/>more text")
         
     Returns:
-        List of segments with type and content
+        List of segments in parsed_sequence format with type and text fields
         
     Example:
         Input:  "Bonjour comment allez-vous ?<break/>"
@@ -92,51 +132,17 @@ def parse_simple_breaks(text_with_breaks: str) -> List[Dict[str, str]]:
 
 def create_empty_ssml_multiline(text_with_breaks: str) -> str:
     """
-    Create empty SSML template with multiline formatting (similar to training data format).
+    Create empty SSML template with multiline formatting (same as main function).
+    
+    This is just an alias to the main function since we now follow the exact training format.
     
     Args:
-        text_with_breaks: Text with simple break tags (e.g., "Bonjour<break/>comment vas-tu ?")
+        text_with_breaks: Text with simple break tags
         
     Returns:
-        Multiline empty SSML template
-        
-    Example:
-        Input:  "Bonjour comment allez-vous ?<break/>"
-        Output: 
-        " <prosody pitch=\"_%\" rate=\"_%\" volume=\"_%\">
-           Bonjour comment allez-vous ?
-         </prosody>
-         <break time=\"_ms\"/>"
+        Empty SSML template with exact training data formatting
     """
-    if not text_with_breaks or not text_with_breaks.strip():
-        return ""
-    
-    segments = parse_simple_breaks(text_with_breaks)
-    ssml_elements = []
-    
-    for segment in segments:
-        if segment['type'] == 'text':
-            text = segment['text'].strip()
-            if text:
-                # Multiline prosody format
-                ssml_elements.append(f'  <prosody pitch="_%\" rate="_%\" volume="_%\">\n    {text}\n  </prosody>')
-        elif segment['type'] == 'break':
-            # Break tag
-            ssml_elements.append('  <break time="_ms"/>')
-    
-    # Join with newlines and add spacing between breaks and prosody
-    final_parts = []
-    for i, element in enumerate(ssml_elements):
-        final_parts.append(element)
-        
-        # Add extra newline between break and following prosody
-        is_break = '<break' in element
-        if is_break and i + 1 < len(ssml_elements) and '<prosody' in ssml_elements[i + 1]:
-            final_parts.append('')  # Empty string adds extra newline
-    
-    if final_parts:
-        return ' ' + '\n'.join(final_parts)
-    return ""
+    return create_empty_ssml_from_simple_breaks(text_with_breaks)
 
 
 # For backward compatibility and testing
@@ -153,26 +159,26 @@ def test_empty_ssml_creation():
         ""
     ]
     
-    print("Testing Empty SSML Creation")
-    print("=" * 50)
+    print("Testing Empty SSML Creation (EXACT training format)")
+    print("=" * 60)
     
     for i, test_input in enumerate(test_cases, 1):
         print(f"\n{i}. Input: '{test_input}'")
         
-        # Test single line format
-        result_single = create_empty_ssml_from_simple_breaks(test_input)
-        print(f"   Single: {result_single}")
-        
-        # Test multiline format  
-        result_multi = create_empty_ssml_multiline(test_input)
-        if result_multi:
-            print(f"   Multi:\n{result_multi}")
+        # Test main function with exact training format
+        result = create_empty_ssml_from_simple_breaks(test_input)
+        print(f"   Output:")
+        if result:
+            # Print with visible formatting
+            print(f"'{result}'")
+            print(f"   Formatted output:")
+            print(result)
         else:
-            print(f"   Multi: (empty)")
+            print(f"   (empty)")
         
         # Test parsing
-        segments = parse_simple_breaks(test_input)
-        print(f"   Segments: {segments}")
+        segments = parse_simple_breaks_to_parsed_sequence_format(test_input)
+        print(f"   Parsed segments: {segments}")
 
 
 if __name__ == "__main__":
