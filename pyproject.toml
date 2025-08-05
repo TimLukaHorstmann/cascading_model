@@ -1,0 +1,14 @@
+[project]
+name = "cascading-model"
+version = "0.1.0"
+description = "French SSML cascade models for text-to-speech prosody control"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0.0",
+    "transformers>=4.36.0",
+    "peft>=0.7.0",
+    "accelerate>=0.25.0",
+    "safetensors>=0.4.0",
+    "sentencepiece>=0.1.99",
+]
