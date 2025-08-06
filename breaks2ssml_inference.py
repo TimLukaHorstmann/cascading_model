@@ -144,8 +144,8 @@ def main():
         example_text = "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour."
     else:
         inferencer = Breaks2SSMLInference(model_name=args.model, device=args.device)
-        input_prompt = "Enter text with symbolic breaks (e.g., 'Hello#250 world')"
-        example_text = "Bonjour#250 comment vas-tu ?"
+        input_prompt = "Enter text with symbolic breaks (e.g., 'Hello world')"
+        example_text = "Bonjour comment vas-tu ?"
     
     if args.interactive:
         print(f"Interactive mode - {input_prompt} (empty line to exit):")
