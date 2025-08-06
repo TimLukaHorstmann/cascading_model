@@ -43,7 +43,7 @@ pip install -r requirements.txt
 ```python
 from breaks2ssml_inference import CascadedInference
 
-# Initialize cascade
+# Initialize cascade (memory efficient - single base model)
 cascade = CascadedInference()
 
 # Convert plain text to SSML
@@ -147,6 +147,7 @@ model = Text2BreaksInference(device="auto")
 ## 📊 Model Information
 
 - **Base Model**: Qwen/Qwen2.5-7B with LoRA adapters
+- **Memory Efficiency**: Shared base model with swappable adapters (50% memory savings)
 - **Language**: French
 - **License**: Apache 2.0
 - **Use Cases**: TTS prosody control, speech synthesis, accessibility tools

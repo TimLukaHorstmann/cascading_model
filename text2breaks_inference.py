@@ -13,6 +13,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 import argparse
 import logging
+from shared_models import get_shared_manager
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -21,26 +22,21 @@ class Text2BreaksInference:
     """Inference class for text-to-breaks model"""
     
     def __init__(self, model_name="hi-paris/ssml-text2breaks-fr-lora", device="auto"):
-        """Initialize the model and tokenizer"""
-        logger.info("Loading base model and tokenizer...")
-        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
-        self.base_model = AutoModelForCausalLM.from_pretrained(
-            "Qwen/Qwen2.5-7B",
-            torch_dtype=torch.bfloat16,
-            device_map=device
-        )
-        
-        logger.info(f"Loading LoRA adapter from {model_name}...")
-        self.model = PeftModel.from_pretrained(self.base_model, model_name)
-        self.model.eval()
-        
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-            
-        logger.info("Model loaded successfully!")
+        """Initialize the model using shared base model"""
+        # Use shared model manager for efficiency
+        self.model_id = model_name
+        self.alias = "text2breaks"
+        self.shared_manager = get_shared_manager(device)
+        self.model, self.tokenizer = self.shared_manager.use_adapter(model_name, alias=self.alias)
+
+        logger.info("Text2Breaks model ready!")
     
-    def predict(self, text, max_new_tokens=256, temperature=0.7, do_sample=True):
+    def predict(self, text, max_new_tokens=256, temperature=1, do_sample=False):
         """Convert French text to text with symbolic breaks"""
+
+        # re-select the adapter at every call
+        self.model, _ = self.shared_manager.use_adapter(self.model_id, alias=self.alias)
+
         if not text or not text.strip():
             return ""
             

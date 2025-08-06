@@ -13,6 +13,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 import argparse
 import logging
+from shared_models import get_shared_manager
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -28,28 +29,21 @@ class Breaks2SSMLInference:
     """Inference class for breaks-to-SSML model"""
     
     def __init__(self, model_name="hi-paris/ssml-breaks2ssml-fr-lora", device="auto"):
-        self.model_name = model_name
-        self.device = device
+        self.model_id = model_name
+        self.alias = "breaks2ssml"
         
-        logger.info(f"Loading base model and tokenizer...")
-        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
-        self.base_model = AutoModelForCausalLM.from_pretrained(
-            "Qwen/Qwen2.5-7B",
-            torch_dtype=torch.bfloat16,
-            device_map=device
-        )
-        
-        logger.info(f"Loading LoRA adapter from {model_name}...")
-        self.model = PeftModel.from_pretrained(self.base_model, model_name)
-        self.model.eval()
-        
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-            
-        logger.info("Model loaded successfully!")
+        # Use shared model manager for efficiency
+        self.shared_manager = get_shared_manager(device)
+        self.model, self.tokenizer = self.shared_manager.use_adapter(self.model_id, alias=self.alias)
+
+        logger.info("Breaks2SSML model ready!")
     
-    def predict(self, text_with_breaks, max_new_tokens=128, temperature=0.1, do_sample=False):
+    def predict(self, text_with_breaks, max_new_tokens=128, temperature=1, do_sample=False):
         """Convert text with simple <break/> tags to proper SSML"""
+
+        # re-select the adapter at every call
+        self.model, _ = self.shared_manager.use_adapter(self.model_id, alias=self.alias)
+
         if not text_with_breaks or not text_with_breaks.strip():
             return ""
             
@@ -100,13 +94,13 @@ class Breaks2SSMLInference:
 
 
 class CascadedInference:
-    """Combined inference using both models in sequence"""
+    """Combined inference using both models in sequence with shared base model"""
     
     def __init__(self, 
                  text2breaks_model="hi-paris/ssml-text2breaks-fr-lora",
                  breaks2ssml_model="hi-paris/ssml-breaks2ssml-fr-lora",
                  device="auto"):
-        logger.info("Initializing cascaded inference...")
+        logger.info("Initializing efficient cascaded inference...")
         
         if Text2BreaksInference is None:
             raise ImportError("Text2BreaksInference not available. Please ensure text2breaks_inference.py is accessible.")
