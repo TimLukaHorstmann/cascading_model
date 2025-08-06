@@ -4,18 +4,9 @@ Inference script for hi-paris/ssml-text2breaks-fr-lora
 Converts French text to text with symbolic pause markers.
 
 Example:
-    Input:  "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour."
-    Output: "Bonjour je m'appelle Bertrand Perier.<break/>Je suis avocat à la cour.<break/>"
+    Input:  "Bonjour comment allez-vous aujourd'hui ?"
+    Output: "Bonjour comment allez-vous aujourd'hui ?<break/>"
 """
-
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel
-import argparse
-import logging
-
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-logger = logging.getLogger(__name__)
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -50,6 +41,9 @@ class Text2BreaksInference:
     
     def predict(self, text, max_new_tokens=256, temperature=0.7, do_sample=True):
         """Convert French text to text with symbolic breaks"""
+        if not text or not text.strip():
+            return ""
+            
         instruction = "Convert text to SSML with pauses:"
         formatted_input = f"### Task:\n{instruction}\n\n### Text:\n{text}\n\n### SSML:\n"
         

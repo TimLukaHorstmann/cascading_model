@@ -5,7 +5,7 @@ Converts text with symbolic pause markers to proper SSML.
 
 Example:
     Input:  "Bonjour comment allez-vous ?<break/>"
-    Output: "<prosody pitch='+0.64%' rate='-1.92%' volume='-10.00%'>Bonjour comment allez-vous ?</prosody><break time='500ms'/>"
+    Output: "<prosody pitch='+2.5%' rate='-1.2%' volume='-5.0%'>Bonjour comment allez-vous ?</prosody><break time='300ms'/>"
 """
 
 import torch
@@ -50,12 +50,12 @@ class Breaks2SSMLInference:
     
     def predict(self, text_with_breaks, max_new_tokens=128, temperature=0.1, do_sample=False):
         """Convert text with simple <break/> tags to proper SSML"""
+        if not text_with_breaks or not text_with_breaks.strip():
+            return ""
+            
         if create_empty_ssml_from_simple_breaks is not None:
             empty_ssml_template = create_empty_ssml_from_simple_breaks(text_with_breaks)
-            logger.info(f"Empty SSML template: {empty_ssml_template}")
-            
             formatted_input = f"### Instruction:\nConvert text Z to text Y.\n\n### Input Z:\n{empty_ssml_template}\n\n### Output Y:\n"
-            logger.info(f"Formatted input: {formatted_input}")
         else:
             logger.warning("Empty SSML creation not available, using direct input")
             formatted_input = text_with_breaks
@@ -119,10 +119,7 @@ class CascadedInference:
     def predict(self, text, **kwargs):
         """Convert plain text to SSML through the cascade"""
         text_with_breaks = self.text2breaks.predict(text, **kwargs)
-        logger.info(f"Step 1 - Text with breaks: {text_with_breaks}")
-        
         ssml_output = self.breaks2ssml.predict(text_with_breaks, **kwargs)
-        logger.info(f"Step 2 - SSML output: {ssml_output}")
         return ssml_output
 
 
@@ -141,11 +138,11 @@ def main():
     if args.cascade:
         inferencer = CascadedInference(device=args.device)
         input_prompt = "Enter plain French text"
-        example_text = "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour."
+        example_text = "Bonjour comment allez-vous aujourd'hui ?"
     else:
         inferencer = Breaks2SSMLInference(model_name=args.model, device=args.device)
-        input_prompt = "Enter text with symbolic breaks (e.g., 'Hello world')"
-        example_text = "Bonjour comment vas-tu ?"
+        input_prompt = "Enter text with symbolic breaks (e.g., 'Bonjour monde<break/>')"
+        example_text = "Bonjour comment allez-vous ?<break/>"
     
     if args.interactive:
         print(f"Interactive mode - {input_prompt} (empty line to exit):")

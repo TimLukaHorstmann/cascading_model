@@ -27,11 +27,11 @@ def demo_examples():
     """Run demo with predefined examples"""
     
     examples = [
-        "Bonjour je m'appelle Bertrand Perier. Je suis avocat à la cour.",
-        "Comment allez-vous aujourd'hui ? J'espère que tout va bien pour vous.",
-        "Il était une fois, dans un pays lointain, un roi très sage qui gouvernait son royaume avec bienveillance.",
-        "Nous vous remercions de votre attention. Avez-vous des questions à poser maintenant ?",
-        "Le temps est magnifique aujourd'hui. Voulez-vous faire une promenade dans le parc ?"
+        "Bonjour comment allez-vous aujourd'hui ?",
+        "Il fait très beau ce matin. Voulez-vous faire une promenade ?",
+        "Je suis ravi de vous rencontrer. Comment vous appelez-vous ?",
+        "Merci beaucoup pour votre aide. C'était très utile.",
+        "Avez-vous des questions ? N'hésitez pas à demander."
     ]
     
     print("=" * 80)
@@ -115,7 +115,7 @@ def interactive_mode():
             input_prompt = "Enter French text"
         elif mode == "3":
             inferencer = Breaks2SSMLInference()
-            input_prompt = "Enter text with symbolic breaks (e.g., 'Bonjour#250 comment allez-vous ?')"
+            input_prompt = "Enter text with symbolic breaks (e.g., 'Bonjour<break/>comment allez-vous ?')"
         else:
             print("Invalid mode selected.")
             return

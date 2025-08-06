@@ -150,7 +150,7 @@ def test_empty_ssml_creation():
     """Test the empty SSML creation functions"""
     test_cases = [
         "Bonjour comment allez-vous ?<break/>",
-        "Bonjour je m'appelle Bertrand Perier.<break/>Je suis avocat à la cour.",
+        "Bonjour il fait beau aujourd'hui.<break/>Voulez-vous sortir ?",
         "Hello world<break/>this is a test<break/>",
         "Simple text without breaks",
         "<break/>starts with break",
