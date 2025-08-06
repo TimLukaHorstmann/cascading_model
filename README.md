@@ -2,6 +2,9 @@
 
 This repository provides inference scripts for French SSML cascade models that improve synthetic speech quality through intelligent prosody control.
 
+🔗 **Demo & Audio Samples**: https://horstmann.tech/ssml-prosody-control/  
+📓 **Interactive Colab**: https://colab.research.google.com/drive/1bFcbJQY9OuY0_zlscqkf9PIgd3dUrIKs?usp=sharing
+
 ## 🧩 Architecture
 
 The cascade consists of two specialized LoRA models based on Qwen2.5-7B with a programmatic processing step:
