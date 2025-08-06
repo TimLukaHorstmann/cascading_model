@@ -9,8 +9,6 @@ Example:
 """
 
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel
 import argparse
 import logging
 from shared_models import get_shared_manager

@@ -17,8 +17,11 @@ class SharedModelManager:
         self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
         self.base = AutoModelForCausalLM.from_pretrained(
             "Qwen/Qwen2.5-7B",
-            torch_dtype="bfloat16",
+            torch_dtype=torch.float16,
             device_map=self.device,
+            low_cpu_mem_usage=True, # Might be necessary for environments with limited GPU memory, e.g. colab
+            max_memory={0: "15GiB", "cpu": "30GiB"}, # Might be necessary for environments with limited GPU memory, e.g. colab
+            # offload_folder="./offload" # Might be necessary for environments with limited GPU memory, e.g. colab
         )
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -37,6 +40,7 @@ class SharedModelManager:
                 repo_or_path,
                 adapter_name=alias,
                 is_trainable=False,
+                # offload_folder="./offload" # Might be necessary for environments with limited GPU memory, e.g. colab
             )
             self._loaded.add(alias)
         elif alias not in self._loaded:
@@ -45,6 +49,7 @@ class SharedModelManager:
                 repo_or_path,
                 adapter_name=alias,
                 is_trainable=False,
+                # offload_folder="./offload" # Might be necessary for environments with limited GPU memory, e.g. colab
             )
             self._loaded.add(alias)
 
